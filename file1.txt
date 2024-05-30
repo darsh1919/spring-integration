@@ -1,0 +1,127 @@
+To create a Kafka inbound adapter using Spring Integration, you'll need to configure Spring Kafka to consume messages from a Kafka topic and process them within an integration flow. Spring Integration provides support for Kafka through the spring-integration-kafka extension.
+
+Here's a step-by-step guide to set up a Kafka inbound adapter:
+
+Step 1: Add Dependencies
+Make sure to include the necessary dependencies in your build.gradle or pom.xml file.
+
+Gradle:
+groovy
+Copy code
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-integration'
+    implementation 'org.springframework.integration:spring-integration-kafka'
+    implementation 'org.springframework.kafka:spring-kafka'
+}
+Maven:
+xml
+Copy code
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-integration</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.integration</groupId>
+        <artifactId>spring-integration-kafka</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.kafka</groupId>
+        <artifactId>spring-kafka</artifactId>
+    </dependency>
+</dependencies>
+Step 2: Configure Kafka Properties
+Add the Kafka properties to your application.properties or application.yml file.
+
+application.properties:
+properties
+Copy code
+spring.kafka.bootstrap-servers=localhost:9092
+spring.kafka.consumer.group-id=my-group
+spring.kafka.consumer.auto-offset-reset=earliest
+spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+spring.kafka.consumer.value-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+Step 3: Create the Kafka Inbound Adapter Configuration
+Define the configuration class to set up the Kafka inbound adapter and the integration flow.
+
+java
+Copy code
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.kafka.dsl.Kafka;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.config.ContainerProperties;
+import org.springframework.kafka.listener.config.ContainerProperties.AckMode;
+import org.springframework.kafka.support.converter.StringJsonMessageConverter;
+import org.springframework.messaging.MessageChannel;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+@EnableKafka
+public class KafkaInboundAdapterConfig {
+
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "my-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentMessageListenerContainer<String, String> kafkaListenerContainer() {
+        ContainerProperties containerProps = new ContainerProperties("my-topic");
+        containerProps.setGroupId("my-group");
+        containerProps.setMessageListener(message -> {
+            System.out.println("Received: " + message);
+        });
+        containerProps.setAckMode(AckMode.BATCH);
+        return new ConcurrentMessageListenerContainer<>(consumerFactory(), containerProps);
+    }
+
+    @Bean
+    public MessageChannel kafkaInputChannel() {
+        return new DirectChannel();
+    }
+
+    @Bean
+    public IntegrationFlow kafkaInboundFlow() {
+        return IntegrationFlows.from(Kafka.messageDrivenChannelAdapter(kafkaListenerContainer())
+                        .errorChannel("errorChannel")
+                        .outputChannel(kafkaInputChannel()))
+                .handle(message -> {
+                    System.out.println("Processing message: " + message.getPayload());
+                })
+                .get();
+    }
+
+    @Bean
+    @ServiceActivator(inputChannel = "errorChannel")
+    public void errorHandler(Throwable throwable) {
+        System.err.println("Error handling message: " + throwable.getMessage());
+    }
+}
+Explanation
+ConsumerFactory: Configures the Kafka consumer properties.
+ConcurrentMessageListenerContainer: Defines the Kafka listener container that listens for messages from the specified topic (my-topic).
+MessageChannel: A direct channel (kafkaInputChannel) to receive messages from the Kafka listener.
+IntegrationFlow: Defines the integration flow that starts with messages from the Kafka inbound channel adapter. The flow processes the messages by printing them out.
+Error Handling: Configures an error handler that listens to an error channel (errorChannel) to handle any exceptions that occur during message processing.
+This configuration sets up a Kafka inbound adapter that listens to a Kafka topic and processes incoming messages within a Spring Integration flow.
+
+
+
+
