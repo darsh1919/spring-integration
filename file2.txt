@@ -1,0 +1,215 @@
+To create a complex Spring Integration flow that consumes messages from a Kafka topic, transforms the messages, sends them to an HTTP endpoint, processes the response, and finally sends the transformed message to another Kafka topic, you can follow these steps:
+
+Define the POJOs: Define O1, O2, and O3 classes.
+Configure Kafka Inbound Adapter: Consume messages of type O1 from a Kafka topic.
+Transformer: Convert O1 to O2.
+HTTP Outbound Adapter: Send O2 to an HTTP endpoint and receive a response of type O3.
+Enricher and Transformer: Enrich and transform O3 back to O1.
+Kafka Outbound Adapter: Send the transformed O1 to another Kafka topic.
+Step 1: Define the POJOs
+java
+Copy code
+public class O1 {
+    private String field1;
+    private int field2;
+
+    // Getters and Setters
+}
+
+public class O2 {
+    private String field3;
+    private boolean field4;
+
+    // Getters and Setters
+}
+
+public class O3 {
+    private String field5;
+    private double field6;
+
+    // Getters and Setters
+}
+Step 2: Configure Kafka Inbound Adapter
+java
+Copy code
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.kafka.dsl.Kafka;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.config.ContainerProperties;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageHandler;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+@EnableKafka
+public class KafkaInboundAdapterConfig {
+
+    @Bean
+    public ConsumerFactory<String, O1> consumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "my-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.example");
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentMessageListenerContainer<String, O1> kafkaListenerContainer() {
+        ContainerProperties containerProps = new ContainerProperties("input-topic");
+        containerProps.setMessageListener(message -> {
+            System.out.println("Received: " + message);
+        });
+        return new ConcurrentMessageListenerContainer<>(consumerFactory(), containerProps);
+    }
+
+    @Bean
+    public MessageChannel kafkaInputChannel() {
+        return new DirectChannel();
+    }
+
+    @Bean
+    public IntegrationFlow kafkaInboundFlow() {
+        return IntegrationFlows.from(Kafka.messageDrivenChannelAdapter(kafkaListenerContainer())
+                        .errorChannel("errorChannel")
+                        .outputChannel(kafkaInputChannel()))
+                .transform(Transformers.toMap())
+                .handle("messageProcessor", "process")
+                .get();
+    }
+}
+Step 3: Transformer to Convert O1 to O2
+java
+Copy code
+import org.springframework.integration.annotation.Transformer;
+import org.springframework.stereotype.Component;
+
+@Component
+public class O1ToO2Transformer {
+
+    @Transformer
+    public O2 transform(O1 o1) {
+        O2 o2 = new O2();
+        o2.setField3(o1.getField1());
+        o2.setField4(o1.getField2() > 0);
+        return o2;
+    }
+}
+Step 4: HTTP Outbound Adapter
+java
+Copy code
+import org.springframework.context.annotation.Bean;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.http.dsl.Http;
+
+@Configuration
+public class HttpOutboundConfig {
+
+    @Bean
+    public IntegrationFlow httpOutboundFlow() {
+        return IntegrationFlows.from("httpOutboundChannel")
+                .handle(Http.outboundGateway("http://example.com/service")
+                        .httpMethod(HttpMethod.POST)
+                        .expectedResponseType(O3.class))
+                .channel("httpResponseChannel")
+                .get();
+    }
+}
+Step 5: Enricher and Transformer to Convert O3 to O1
+java
+Copy code
+import org.springframework.context.annotation.Bean;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.dsl.Transformers;
+import org.springframework.integration.transformer.Transformer;
+import org.springframework.stereotype.Component;
+
+@Configuration
+public class O3ToO1Config {
+
+    @Bean
+    public IntegrationFlow o3ToO1Flow() {
+        return IntegrationFlows.from("httpResponseChannel")
+                .transform(new O3ToO1Transformer())
+                .channel("kafkaOutputChannel")
+                .get();
+    }
+}
+
+@Component
+public class O3ToO1Transformer implements Transformer {
+
+    @Override
+    public O1 transform(O3 o3) {
+        O1 o1 = new O1();
+        o1.setField1(o3.getField5());
+        o1.setField2((int) o3.getField6());
+        return o1;
+    }
+}
+Step 6: Kafka Outbound Adapter
+java
+Copy code
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.kafka.dsl.Kafka;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonSerializer;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class KafkaOutboundAdapterConfig {
+
+    @Bean
+    public ProducerFactory<String, O1> producerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean
+    public IntegrationFlow kafkaOutboundFlow() {
+        return IntegrationFlows.from("kafkaOutputChannel")
+                .handle(Kafka.outboundChannelAdapter(producerFactory())
+                        .topic("output-topic"))
+                .get();
+    }
+}
+Summary
+This configuration sets up a complex Spring Integration flow with the following steps:
+
+Kafka Inbound Adapter: Consumes messages of type O1 from the "input-topic".
+Transformer: Converts O1 to O2.
+HTTP Outbound Adapter: Sends O2 to an HTTP endpoint and receives a response of type O3.
+Enricher and Transformer: Enriches and transforms O3 back to O1.
+Kafka Outbound Adapter: Sends the transformed O1 to the "output-topic".
+Each step in this flow is modular and can be customized as needed for your specific use case.
+
+
+
+
+
