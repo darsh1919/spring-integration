@@ -41,3 +41,58 @@ public class PayloadHeadersTest {
         assertEquals("CustomRuleSet", payloadHeaders.getRuleSetName(), "RuleSetName should be 'CustomRuleSet'");
     }
 }
+
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class RuleEngineConfigTest {
+
+    @Test
+    public void testConstructor() {
+        // Test different constructors
+        RuleEngineConfig config1 = new RuleEngineConfig("source1", "upstream1", "rule1", "type1");
+        RuleEngineConfig config2 = RuleEngineConfig.builder()
+                .sourceSystem("source2")
+                .upstreamFactName("upstream2")
+                .ruleEngineFactName("rule2")
+                .factType("type2")
+                .build();
+
+        assertNotNull(config1);
+        assertNotNull(config2);
+
+        assertEquals("source1", config1.getSourceSystem());
+        assertEquals("upstream1", config1.getUpstreamFactName());
+        assertEquals("rule1", config1.getRuleEngineFactName());
+        assertEquals("type1", config1.getFactType());
+
+        assertEquals("source2", config2.getSourceSystem());
+        assertEquals("upstream2", config2.getUpstreamFactName());
+        assertEquals("rule2", config2.getRuleEngineFactName());
+        assertEquals("type2", config2.getFactType());
+    }
+
+    @Test
+    public void testEqualsAndHashCode() {
+        RuleEngineConfig config1 = new RuleEngineConfig("same", "same", "same", "same");
+        RuleEngineConfig config2 = new RuleEngineConfig("same", "same", "same", "same");
+        RuleEngineConfig config3 = new RuleEngineConfig("diff", "same", "same", "same");
+
+        assertEquals(config1, config2);
+        assertEquals(config1.hashCode(), config2.hashCode());
+        assertNotEquals(config1, config3);
+        assertNotEquals(config1.hashCode(), config3.hashCode());
+    }
+
+    @Test
+    public void testToString() {
+        RuleEngineConfig config = new RuleEngineConfig("source", "upstream", "rule", "type");
+        assertNotNull(config.toString());
+        assertTrue(config.toString().contains("source"));
+        assertTrue(config.toString().contains("upstream"));
+        assertTrue(config.toString().contains("rule"));
+        assertTrue(config.toString().contains("type"));
+    }
+}
