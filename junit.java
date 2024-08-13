@@ -96,3 +96,46 @@ public class RuleEngineConfigTest {
         assertTrue(config.toString().contains("type"));
     }
 }
+
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+@DataJpaTest
+public class RuleEngineConfigRepositoryTest {
+
+    @Mock
+    private RuleEngineConfigRepository ruleEngineConfigRepository;
+
+    @Test
+    public void testRulsetNameMapping() {
+        // Mock the expected result
+        List<Map<String, String>> mockResult = new ArrayList<>();
+        Map<String, String> map = new HashMap<>();
+        map.put("source_system", "system1");
+        map.put("rulset_name", "rulset1");
+        mockResult.add(map);
+
+        // Define behavior of the repository method
+        when(ruleEngineConfigRepository.rulsetNameMapping()).thenReturn(mockResult);
+
+        // Call the method
+        List<Map<String, String>> result = ruleEngineConfigRepository.rulsetNameMapping();
+
+        // Verify the result
+        assertEquals(1, result.size());
+        assertEquals("system1", result.get(0).get("source_system"));
+        assertEquals("rulset1", result.get(0).get("rulset_name"));
+    }
+}
+
