@@ -91,3 +91,41 @@ public class RuleProcessorDtoTransformerTest {
         assertThrows(Exception.class, () -> ruleProcessorDtoTransformer.transform(mockMessage));
     }
 }
+
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+public class DriverApiServiceTest {
+
+    @InjectMocks
+    private DriverApiService driverApiService;
+
+    @Mock
+    private ApiService apiService;
+
+    @Test
+    public void testGetRuleEngineResponse_Success() {
+        String rulesetName = "testRuleset";
+        List<String> expectedDriverDetails = List.of("driver1", "driver2");
+
+        when(apiService.getDriverDetails(rulesetName)).thenReturn(expectedDriverDetails);
+
+        List<String> actualDriverDetails = driverApiService.getRuleEngineResponse(rulesetName);
+
+        assertEquals(expectedDriverDetails, actualDriverDetails);
+    }
+
+    // Add more test cases for different scenarios like:
+    // - Handling exceptions from ApiService
+    // - Testing cache behavior (hit and miss)
+}
