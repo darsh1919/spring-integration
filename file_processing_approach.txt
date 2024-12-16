@@ -183,5 +183,28 @@ Would you like detailed alternatives to compare or additional optimizations for 
 
 
 
+---------------------+      +---------------------------+      +-------------------------+
+|                     |      |                           |      |                         |
+|     S3 Bucket       +----->|        AWS Lambda         +----->|      State Tracking     |
+|                     |      |   (Classify & Trigger ECS) |      |    (DynamoDB/PostgreSQL) |
++---------------------+      +---------------------------+      +-------------------------+
+                                                    |
+                                                    v
+                                          +---------------------+
+                                          |    ECS Fargate      |
+                                          | (Task Processing)   |
+                                          +---------------------+
+                                                    |
+                                                    v
+                                         +----------------------+
+                                         |   Application Load   |
+                                         |      Balancer        |
+                                         +----------------------+
+
+
+
+
+
+
 
 
